@@ -28,7 +28,7 @@ lazy_static = "*"
 
 [dependencies.rustls]
 git = "https://github.com/ctz/rustls"
-branch = "jbp-tls13-draft-28"
+rev = "9a230c6d"
 features = ["quic"]
 
 [dependencies.snow]
@@ -39,6 +39,11 @@ branch = "master"
 env_logger = "0.5"
 untrusted = "0.6"
 hex = "*"
+
+[patch.crates-io]
+x25519-dalek = { "git" = "https://github.com/dalek-cryptography/x25519-dalek", tag = "0.2.0" }
+curve25519-dalek = { "git" = "https://github.com/dalek-cryptography/curve25519-dalek", tag = "0.17.0" }
+subtle = { "git" = "https://github.com/dalek-cryptography/subtle", tag = "0.6.0" }
 
 [[bin]]
 name = "client"
