@@ -26,7 +26,7 @@ impl BufLen for Frame {
     fn buf_len(&self) -> usize {
         match self {
             Frame::Ack(f) => f.buf_len(),
-            Frame::Crypto(f) => 1 + f.buf_len(),
+            Frame::Crypto(f) => f.buf_len(),
             Frame::ApplicationClose(f) => 1 + f.buf_len(),
             Frame::ConnectionClose(f) => 1 + f.buf_len(),
             Frame::Padding(f) => f.buf_len(),
@@ -67,7 +67,6 @@ impl Codec for Frame {
                 f.encode(buf)
             }
             Frame::Crypto(f) => {
-                buf.put_u8(CRYPTO_FRAME_ID);
                 f.encode(buf)
             }
         }
@@ -76,7 +75,7 @@ impl Codec for Frame {
     fn decode<T: Buf>(buf: &mut T) -> QuicResult<Self> {
         Ok(match buf.bytes()[0] {
             v if v >= 0x10 && v < 0x18
-                => Frame::Stream(StreamFrame::decode(buf)?),
+            => Frame::Stream(StreamFrame::decode(buf)?),
             0x02 => Frame::ConnectionClose({
                 buf.get_u8();
                 CloseFrame::decode(buf)?
@@ -94,7 +93,6 @@ impl Codec for Frame {
                 StreamIdBlockedFrame::decode(buf)?
             }),
             CRYPTO_FRAME_ID => Frame::Crypto({
-                buf.get_u8();
                 CryptoFrame::decode(buf)?
             }),
             0x0d => Frame::Ack(AckFrame::decode(buf)?),
@@ -198,9 +196,9 @@ pub struct CryptoFrame {
 impl BufLen for CryptoFrame {
     fn buf_len(&self) -> usize {
         1 +
-        VarLen(self.offset).buf_len() +
-        VarLen(self.length).buf_len() +
-        self.payload.len()
+            VarLen(self.offset).buf_len() +
+            VarLen(self.length).buf_len() +
+            self.payload.len()
     }
 }
 
@@ -247,9 +245,9 @@ impl BufLen for AckFrame {
         1 + VarLen(u64::from(self.largest)).buf_len() + VarLen(self.ack_delay).buf_len()
             + VarLen((self.blocks.len() - 1) as u64).buf_len()
             + self.blocks
-                .iter()
-                .map(|v| VarLen(v.value()).buf_len())
-                .sum::<usize>()
+            .iter()
+            .map(|v| VarLen(v.value()).buf_len())
+            .sum::<usize>()
     }
 }
 
@@ -439,12 +437,16 @@ mod tests {
 
     #[test]
     fn test_crypto_round_trip() {
+        use codec::VarLen;
         let payload = b"\x0d\x9c\xf7\x55\x86\x00\x00\x00";
         let obj = super::Frame::Crypto(super::CryptoFrame {
-            len     : payload.len() as u16,
+            offset  : 0,
+            length  : payload.len() as u64,
             payload : payload.to_vec(),
         });
-        let bytes = b"\x0b\x00\x08\x0d\x9c\xf7\x55\x86\x00\x00\x00";
+        let bytes = b"\x18\x00\x08\x0d\x9c\xf7\x55\x86\x00\x00\x00";
+        assert_eq!(VarLen(0).buf_len(), 1);
+        assert_eq!(VarLen(payload.len() as u64).buf_len(), 1);
         assert_eq!(obj.buf_len(), bytes.len());
 
         let mut buf = Vec::with_capacity(64);

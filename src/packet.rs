@@ -297,7 +297,7 @@ mod tests {
         ];
         let header = super::Header::Short {
             key_phase: false,
-            ptype: super::ShortType::Two,
+            ptype: super::ShortType::Four,
             dst_cid: ConnectionId::new(&con),
             number: 3152957029,
         };
