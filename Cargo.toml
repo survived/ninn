@@ -10,7 +10,6 @@ repository = "https://github.com/nccgroup/ninn"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-x25519-dalek = "0.2.0"
 bytes = "0.4.7"
 failure = "0.1"
 failure_derive = "0.1"
@@ -32,18 +31,13 @@ rev = "9a230c6d"
 features = ["quic"]
 
 [dependencies.snow]
-git = "https://github.com/rot256/snow"
-branch = "master"
+git = "https://github.com/survived/snow.git"
+branch = "hs_exposes_keys"
 
 [dev-dependencies]
 env_logger = "0.5"
 untrusted = "0.6"
 hex = "*"
-
-[patch.crates-io]
-x25519-dalek = { "git" = "https://github.com/dalek-cryptography/x25519-dalek", tag = "0.2.0" }
-curve25519-dalek = { "git" = "https://github.com/dalek-cryptography/curve25519-dalek", tag = "0.17.0" }
-subtle = { "git" = "https://github.com/dalek-cryptography/subtle", tag = "0.6.0" }
 
 [[bin]]
 name = "client"

@@ -11,7 +11,7 @@ use hex;
 use snow;
 use protector;
 
-use snow::NoiseBuilder;
+use snow::Builder;
 use snow::params::NoiseParams;
 
 lazy_static! {
@@ -35,14 +35,14 @@ const STATIC_DUMMY_PUBLIC : [u8; 32] = [
 pub struct ClientSession {
     static_key    : [u8; 32],                          // client secret
     remote_key    : [u8; 32],                          // server public
-    session       : Option<snow::Session>,             // noise snow session
+    session       : Option<snow::HandshakeState>,      // noise snow session
     params_remote : Option<ServerTransportParameters>, // authenticated remote transport parameters
     params_local  : ClientTransportParameters,         // transport parameters
 }
 
 pub struct ServerSession<A> where A : ClientAuthenticator {
     static_key    : [u8; 32],                          // server secret
-    session       : Option<snow::Session>,             // noise snow session
+    session       : Option<snow::HandshakeState>,      // noise snow session
     params_remote : Option<ClientTransportParameters>, // authenticated remote transport parameters
     params_local  : ServerTransportParameters,         // transport parameters
     auth          : Box<A>,                            // application specific auth. check
@@ -97,7 +97,7 @@ impl Session for ClientSession {
     }
 
     fn process_message(&mut self, msg: &[u8]) -> QuicResult<HandshakeResult> {
-        let session = self.session.as_mut().unwrap();
+        let mut session = self.session.take().unwrap();
         let mut payload = vec![0u8; 65535];
         match session.read_message(msg, &mut payload) {
             Ok(n)  => {
@@ -113,7 +113,10 @@ impl Session for ClientSession {
 
                 // export key material
 
-                let (client_secret, server_secret) = session.export().unwrap();
+                let cipher = session.into_cipher_keys().unwrap();
+                let (mut client_secret, mut server_secret) = ([0; 32], [0; 32]);
+                client_secret.copy_from_slice(&cipher.0[0..32]);
+                server_secret.copy_from_slice(&cipher.1[0..32]);
 
                 debug!("  params_remote = {:?}", &self.params_remote);
                 debug!("  exporting key material from Noise:");
@@ -142,7 +145,7 @@ impl ClientSession {
         // build Noise session
 
         self.session = Some({
-            let builder  = NoiseBuilder::new(PARAMS.clone());
+            let builder  = Builder::new(PARAMS.clone());
                 builder
                     .prologue(prologue)
                     .local_private_key(&self.static_key)
@@ -170,7 +173,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                 Err(QuicError::General("setting prologue after processing handshake request".to_owned())),
             None => {
                 self.session = Some({
-                    let builder  = NoiseBuilder::new(PARAMS.clone());
+                    let builder  = Builder::new(PARAMS.clone());
                         builder
                             .local_private_key(&self.static_key)
                             .prologue(prologue)
@@ -192,7 +195,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
 
         debug!("process handshake message");
 
-        let session = self.session.as_mut().unwrap();
+        let mut session = self.session.take().unwrap();
         let mut payload = vec![0u8; 65535];
         match session.read_message(msg, &mut payload) {
             Ok(n)  => {
@@ -261,7 +264,10 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                 assert!(!session.is_initiator());
                 assert!(session.is_handshake_finished());
 
-                let (client_secret, server_secret) = session.export().unwrap();
+                let cipher = session.into_cipher_keys().unwrap();
+                let (mut client_secret, mut server_secret) = ([0; 32], [0; 32]);
+                client_secret.copy_from_slice(&cipher.0[0..32]);
+                server_secret.copy_from_slice(&cipher.1[0..32]);
 
                 debug!("  client : {}", hex::encode(client_secret));
                 debug!("  server : {}", hex::encode(server_secret));
