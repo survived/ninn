@@ -14,6 +14,7 @@ extern crate hex;
 extern crate rand;
 extern crate ring;
 extern crate snow;
+extern crate oqs;
 extern crate rustls;
 extern crate tokio;
 extern crate webpki;

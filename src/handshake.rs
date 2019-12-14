@@ -15,7 +15,7 @@ use snow::Builder;
 use snow::params::NoiseParams;
 
 lazy_static! {
-    static ref PARAMS: NoiseParams = "Noise_IK_25519_AESGCM_SHA256".parse().unwrap();
+    static ref PARAMS: NoiseParams = "Noise_IKhfs_25519+Kyber1024_AESGCM_SHA256".parse().unwrap();
 }
 
 const STATIC_DUMMY_SECRET : [u8; 32] = [
@@ -145,7 +145,7 @@ impl ClientSession {
         // build Noise session
 
         self.session = Some({
-            let resolver = snow::resolvers::FallbackResolver::new(Box::new(AesResolver), Box::new(snow::resolvers::DefaultResolver::default()));
+            let resolver = snow::resolvers::FallbackResolver::new(Box::new(CryptoResolver), Box::new(snow::resolvers::DefaultResolver::default()));
             let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
                 builder
                     .prologue(prologue)
@@ -174,7 +174,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                 Err(QuicError::General("setting prologue after processing handshake request".to_owned())),
             None => {
                 self.session = Some({
-                    let resolver = snow::resolvers::FallbackResolver::new(Box::new(AesResolver), Box::new(snow::resolvers::DefaultResolver::default()));
+                    let resolver = snow::resolvers::FallbackResolver::new(Box::new(CryptoResolver), Box::new(snow::resolvers::DefaultResolver::default()));
                     let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
                         builder
                             .local_private_key(&self.static_key)
@@ -308,9 +308,9 @@ fn to_vec<T: Codec>(val: &T) -> Vec<u8> {
 
 const ALPN_PROTOCOL: &str = "hq-11";
 
-struct AesResolver;
+struct CryptoResolver;
 
-impl snow::resolvers::CryptoResolver for AesResolver {
+impl snow::resolvers::CryptoResolver for CryptoResolver {
     fn resolve_rng(&self) -> Option<Box<dyn snow::types::Random>> {
         None
     }
@@ -329,10 +329,81 @@ impl snow::resolvers::CryptoResolver for AesResolver {
             _ => None,
         }
     }
+
+    fn resolve_kem(&self, _choice: &snow::params::KemChoice) -> Option<Box<dyn snow::types::Kem>> {
+        match Kem::new("sikep434", oqs::kem::OqsKemAlg::SikeP434) {
+            Ok(x) => Some(Box::new(x)), // as Box<dyn snow::types::Kem>
+            Err(e) => {
+                error!("cannot init kem: {}", e);
+                None
+            }
+        }
+    }
+}
+
+struct Kem {
+    name: &'static str,
+    oqs: oqs::kem::OqsKem,
+    public_key: Option<Vec<u8>>,
+    private_key: Option<Vec<u8>>,
+}
+
+impl Kem {
+    pub fn new(name: &'static str, alg: oqs::kem::OqsKemAlg) -> oqs::kem::Result<Self> {
+        let oqs = oqs::kem::OqsKem::new(alg)?;
+        Ok(Self {
+            name, oqs,
+            public_key: None,
+            private_key: None,
+        })
+    }
+}
+
+impl snow::types::Kem for Kem {
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn pub_len(&self) -> usize {
+        self.oqs.public_key_length()
+    }
+
+    fn ciphertext_len(&self) -> usize {
+        self.oqs.cipher_text_length()
+    }
+
+    fn shared_secret_len(&self) -> usize {
+        self.oqs.shared_secret_length()
+    }
+
+    fn generate(&mut self, _rng: &mut dyn snow::types::Random) {
+        let mut public_key = vec![0u8; self.oqs.public_key_length()];
+        let mut private_key = vec![0u8; self.oqs.private_key_length()];
+        self.oqs.generate_keypair(&mut public_key, &mut private_key).expect("cannot generate keypair");
+        self.public_key = Some(public_key);
+        self.private_key = Some(private_key);
+    }
+
+    fn pubkey(&self) -> &[u8] {
+        self.public_key.as_ref().expect("keypair is not generated yet")
+    }
+
+    fn encapsulate(&self, pubkey: &[u8], shared_secret_out: &mut [u8], ciphertext_out: &mut [u8]) -> Result<(usize, usize), ()> {
+        self.oqs.encapsulate(pubkey, shared_secret_out, ciphertext_out)
+            .ok().ok_or(())?;
+        Ok((self.oqs.shared_secret_length(), self.oqs.cipher_text_length()))
+    }
+
+    fn decapsulate(&self, ciphertext: &[u8], shared_secret_out: &mut [u8]) -> Result<usize, ()> {
+        let private_key = self.private_key.as_ref().expect("keypair is not generated yet");
+        self.oqs.decapsulate(&private_key, ciphertext, shared_secret_out)
+            .ok().ok_or(())?;
+        Ok(self.oqs.shared_secret_length())
+    }
 }
 
 #[derive(Default)]
-pub struct CipherAESGCM {
+struct CipherAESGCM {
     key: [u8; 32],
 }
 

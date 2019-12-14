@@ -35,6 +35,11 @@ features = ["quic"]
 [dependencies.snow]
 git = "https://github.com/survived/snow.git"
 branch = "hs_exposes_keys"
+features = ["hfs"]
+
+[dependencies.oqs]
+git = "https://github.com/survived/oqs-rs.git"
+branch = "liboqs-upgrade"
 
 [dev-dependencies]
 env_logger = "0.5"
