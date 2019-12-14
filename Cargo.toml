@@ -11,6 +11,8 @@ license = "MIT/Apache-2.0"
 
 [dependencies]
 bytes = "0.4.7"
+byteorder = "^1.2"
+rust-crypto = "^0.2"
 failure = "0.1"
 failure_derive = "0.1"
 futures = "0.1"

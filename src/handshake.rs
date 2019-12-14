@@ -145,7 +145,8 @@ impl ClientSession {
         // build Noise session
 
         self.session = Some({
-            let builder  = Builder::new(PARAMS.clone());
+            let resolver = snow::resolvers::FallbackResolver::new(Box::new(AesResolver), Box::new(snow::resolvers::DefaultResolver::default()));
+            let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
                 builder
                     .prologue(prologue)
                     .local_private_key(&self.static_key)
@@ -173,7 +174,8 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                 Err(QuicError::General("setting prologue after processing handshake request".to_owned())),
             None => {
                 self.session = Some({
-                    let builder  = Builder::new(PARAMS.clone());
+                    let resolver = snow::resolvers::FallbackResolver::new(Box::new(AesResolver), Box::new(snow::resolvers::DefaultResolver::default()));
+                    let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
                         builder
                             .local_private_key(&self.static_key)
                             .prologue(prologue)
@@ -305,3 +307,75 @@ fn to_vec<T: Codec>(val: &T) -> Vec<u8> {
 }
 
 const ALPN_PROTOCOL: &str = "hq-11";
+
+struct AesResolver;
+
+impl snow::resolvers::CryptoResolver for AesResolver {
+    fn resolve_rng(&self) -> Option<Box<dyn snow::types::Random>> {
+        None
+    }
+
+    fn resolve_dh(&self, _choice: &snow::params::DHChoice) -> Option<Box<dyn snow::types::Dh>> {
+        None
+    }
+
+    fn resolve_hash(&self, _choice: &snow::params::HashChoice) -> Option<Box<dyn snow::types::Hash>> {
+        None
+    }
+
+    fn resolve_cipher(&self, choice: &snow::params::CipherChoice) -> Option<Box<dyn snow::types::Cipher>> {
+        match *choice {
+            snow::params::CipherChoice::AESGCM => Some(Box::new(CipherAESGCM::default())),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct CipherAESGCM {
+    key: [u8; 32],
+}
+
+impl snow::types::Cipher for CipherAESGCM {
+    fn name(&self) -> &'static str {
+        static NAME: &'static str = "AESGCM";
+        NAME
+    }
+
+    fn set(&mut self, key: &[u8]) {
+        copy_memory(key, &mut self.key);
+    }
+
+    fn encrypt(&self, nonce: u64, authtext: &[u8], plaintext: &[u8], out: &mut[u8]) -> usize {
+        use byteorder::ByteOrder;
+        use crypto::aead::AeadEncryptor;
+        let mut nonce_bytes = [0u8; 12];
+        byteorder::BigEndian::write_u64(&mut nonce_bytes[4..], nonce);
+        let mut cipher = crypto::aes_gcm::AesGcm::new(crypto::aes::KeySize::KeySize256, &self.key, &nonce_bytes, authtext);
+        let mut tag = [0u8; 16];
+        cipher.encrypt(plaintext, &mut out[..plaintext.len()], &mut tag);
+        copy_memory(&tag, &mut out[plaintext.len()..]);
+        plaintext.len() + 16
+    }
+
+    fn decrypt(&self, nonce: u64, authtext: &[u8], ciphertext: &[u8], out: &mut[u8]) -> Result<usize, ()> {
+        use byteorder::ByteOrder;
+        use crypto::aead::AeadDecryptor;
+        let mut nonce_bytes = [0u8; 12];
+        byteorder::BigEndian::write_u64(&mut nonce_bytes[4..], nonce);
+        let mut cipher = crypto::aes_gcm::AesGcm::new(crypto::aes::KeySize::KeySize256, &self.key, &nonce_bytes, authtext);
+        let text_len = ciphertext.len() - 16;
+        let mut tag = [0u8; 16];
+        copy_memory(&ciphertext[text_len..], &mut tag);
+        if cipher.decrypt(&ciphertext[..text_len], &mut out[..text_len], &tag) {
+            Ok(text_len)
+        } else {
+            Err(())
+        }
+    }
+}
+
+fn copy_memory(from: &[u8], to: &mut [u8]) {
+    let i = from.len().min(to.len());
+    to[..i].copy_from_slice(&from[..i]);
+}

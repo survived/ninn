@@ -1,4 +1,6 @@
 extern crate bytes;
+extern crate byteorder;
+extern crate crypto;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
