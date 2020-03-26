@@ -39,7 +39,7 @@ features = ["hfs"]
 
 [dependencies.oqs]
 git = "https://github.com/survived/oqs-rs.git"
-branch = "liboqs-upgrade"
+branch = "unstable"
 
 [dev-dependencies]
 env_logger = "0.5"

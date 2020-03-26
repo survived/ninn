@@ -555,7 +555,7 @@ dependencies = [
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "oqs 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade)",
+ "oqs 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=unstable)",
  "rand 0.5.0-pre.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.13.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -599,17 +599,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "oqs"
 version = "0.1.0"
-source = "git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade#5f9ee39b6ff3dbe80d1c3134799171b31b33e0d1"
+source = "git+https://github.com/survived/oqs-rs.git?branch=unstable#2396e9ea527c7ce90b37af56b9d7d2ba10e7fc19"
 dependencies = [
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
- "oqs-sys 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade)",
+ "oqs-sys 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=unstable)",
  "snafu 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "oqs-sys"
 version = "0.1.0"
-source = "git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade#5f9ee39b6ff3dbe80d1c3134799171b31b33e0d1"
+source = "git+https://github.com/survived/oqs-rs.git?branch=unstable#2396e9ea527c7ce90b37af56b9d7d2ba10e7fc19"
 dependencies = [
  "bindgen 0.52.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.65 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1421,8 +1421,8 @@ dependencies = [
 "checksum nom 4.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2ad2a91a8e869eeb30b9cb3119ae87773a8f4ae617f41b1eb9c154b2905f7bd6"
 "checksum num_cpus 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "76dac5ed2a876980778b8b85f75a71b6cbf0db0b1232ee12f826bccb00d09d72"
 "checksum opaque-debug 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
-"checksum oqs 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade)" = "<none>"
-"checksum oqs-sys 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade)" = "<none>"
+"checksum oqs 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=unstable)" = "<none>"
+"checksum oqs-sys 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=unstable)" = "<none>"
 "checksum parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f842b1982eb6c2fe34036a4fbfb06dd185a3f5c8edfaacdf7d1ea10b07de6252"
 "checksum parking_lot_core 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b876b1b9e7ac6e1a74a6da34d25c42e17e8862aa409cbbbdcfc8d86c6f3bc62b"
 "checksum peeking_take_while 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
