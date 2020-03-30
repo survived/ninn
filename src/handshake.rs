@@ -331,7 +331,7 @@ impl snow::resolvers::CryptoResolver for CryptoResolver {
     }
 
     fn resolve_kem(&self, _choice: &snow::params::KemChoice) -> Option<Box<dyn snow::types::Kem>> {
-        match Kem::new("sikep434", oqs::kem::OqsKemAlg::SikeP434) {
+        match Kem::new("SIKE-p434", oqs::kem::OqsKemAlg::SikeP434) {
             Ok(x) => Some(Box::new(x)), // as Box<dyn snow::types::Kem>
             Err(e) => {
                 error!("cannot init kem: {}", e);
