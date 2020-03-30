@@ -128,7 +128,7 @@ impl Session for ClientSession {
                     server: server_secret
                 })))
             },
-            Err(_) => Err(QuicError::General("failed to decrypt noise".to_owned()))
+            Err(err) => Err(QuicError::General(format!("failed to decrypt noise: {}", err)))
         }
     }
 }
@@ -215,7 +215,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
 
                 if parameters.initial_version != QUIC_VERSION {
                     return Err(
-                        QuicError::General("failed to decrypt noise".to_owned())
+                        QuicError::General("failed to decrypt noise: mismatched version".to_owned())
                     );
                 };
 
@@ -279,7 +279,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                     server: server_secret
                 })))
             },
-            Err(_) => Err(QuicError::General("failed to decrypt noise".to_owned()))
+            Err(err) => Err(QuicError::General(format!("failed to decrypt noise: {}", err)))
         }
     }
 }
