@@ -58,7 +58,9 @@ impl Client {
 
     fn poll_send(&mut self) -> Poll<(), QuicError> {
         if let Some(buf) = self.conn_state.queued()? {
+            info!("sending {} bytes...", buf.len());
             let len = try_ready!(self.socket.poll_send(&buf));
+            info!("just sent {} bytes", buf.len());
             debug_assert_eq!(len, buf.len());
         }
         self.conn_state.pop_queue();
@@ -77,6 +79,7 @@ impl Future for Client {
                 e @ Err(_) => try_ready!(e),
             }
             let len = try_ready!(self.socket.poll_recv(&mut self.buf));
+            info!("just received {} bytes", len);
             match self.conn_state.handle(&mut self.buf[..len]) {
                 Ok(_)  => (),
                 Err(err) => {

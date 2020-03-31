@@ -240,6 +240,7 @@ impl <A> Future for Connection<A> where A : ClientAuthenticator {
             let mut received = false;
             match self.recv.poll() {
                 Ok(Async::Ready(Some(ref mut msg))) => {
+                    info!("just received {} bytes", msg.len());
                     match self.state.handle(msg) {
                         Ok(_) => {
                             received = true;
@@ -276,6 +277,7 @@ impl <A> Future for Connection<A> where A : ClientAuthenticator {
             match self.state.queued() {
                 Ok(Some(msg)) => match self.send.start_send((self.addr, msg.clone())) {
                     Ok(AsyncSink::Ready) => {
+                        info!("just sent {} bytes", msg.len());
                         sent = true;
                     }
                     Ok(AsyncSink::NotReady(msg)) => {
@@ -301,6 +303,7 @@ impl <A> Future for Connection<A> where A : ClientAuthenticator {
             }
 
             if !(received || sent || flushed) {
+                futures::task::current().notify();
                 break;
             }
         }
