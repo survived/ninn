@@ -15,7 +15,15 @@ use snow::Builder;
 use snow::params::NoiseParams;
 
 lazy_static! {
-    static ref PARAMS: NoiseParams = "Noise_IKhfs_25519+Kyber1024_AESGCM_SHA256".parse().unwrap();
+    static ref PARAMS: NoiseParams = NoiseParams{
+        name: "Noise_IKhfs_25519+SIKE-p434_AESGCM_SHA256".to_owned(),
+        base: snow::params::BaseChoice::Noise,
+        handshake: "IKhfs".parse().unwrap(),
+        dh: snow::params::DHChoice::Curve25519,
+        kem: Some(snow::params::KemChoice::Kyber1024),
+        cipher: snow::params::CipherChoice::AESGCM,
+        hash: snow::params::HashChoice::SHA256,
+    };
 }
 
 const STATIC_DUMMY_SECRET : [u8; 32] = [
@@ -128,7 +136,7 @@ impl Session for ClientSession {
                     server: server_secret
                 })))
             },
-            Err(err) => Err(QuicError::General(format!("failed to decrypt noise: {}", err)))
+            Err(err) => Err(QuicError::General(format!("failed to decrypt noise2: {}", err)))
         }
     }
 }
@@ -279,7 +287,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                     server: server_secret
                 })))
             },
-            Err(err) => Err(QuicError::General(format!("failed to decrypt noise: {}", err)))
+            Err(err) => Err(QuicError::General(format!("failed to decrypt noise1: {}", err)))
         }
     }
 }
