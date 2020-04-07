@@ -21,15 +21,16 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn connect(server: &str, port: u16, server_static: [u8; 32], client_static: Option<[u8; 32]>) -> QuicResult<ConnectFuture> {
-        ConnectFuture::new(Self::new(server, port, server_static, client_static)?)
+    pub fn connect(server: &str, port: u16, server_static: [u8; 32], client_static: Option<[u8; 32]>, kem_alg: Option<oqs::kem::OqsKemAlg>) -> QuicResult<ConnectFuture> {
+        ConnectFuture::new(Self::new(server, port, server_static, client_static, kem_alg)?)
     }
 
-    pub(crate) fn new(server: &str, port: u16, server_static: [u8; 32], client_static: Option<[u8; 32]>) -> QuicResult<Client> {
+    pub(crate) fn new(server: &str, port: u16, server_static: [u8; 32], client_static: Option<[u8; 32]>, kem_alg: Option<oqs::kem::OqsKemAlg>) -> QuicResult<Client> {
         let handshake = handshake::client_session(
             server_static,
             client_static,
-            ClientTransportParameters::default().clone());
+            ClientTransportParameters::default().clone(),
+            kem_alg);
         Self::with_state(server, port, ConnectionState::new(handshake, None))
     }
 

@@ -14,18 +14,6 @@ use protector;
 use snow::Builder;
 use snow::params::NoiseParams;
 
-lazy_static! {
-    static ref PARAMS: NoiseParams = NoiseParams{
-        name: "Noise_IKhfs_25519+SIKE-p434_AESGCM_SHA256".to_owned(),
-        base: snow::params::BaseChoice::Noise,
-        handshake: "IKhfs".parse().unwrap(),
-        dh: snow::params::DHChoice::Curve25519,
-        kem: Some(snow::params::KemChoice::Kyber1024),
-        cipher: snow::params::CipherChoice::AESGCM,
-        hash: snow::params::HashChoice::SHA256,
-    };
-}
-
 const STATIC_DUMMY_SECRET : [u8; 32] = [
     0xe0, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,
     0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
@@ -46,6 +34,7 @@ pub struct ClientSession {
     session       : Option<snow::HandshakeState>,      // noise snow session
     params_remote : Option<ServerTransportParameters>, // authenticated remote transport parameters
     params_local  : ClientTransportParameters,         // transport parameters
+    kem_alg       : Option<oqs::kem::OqsKemAlg>,       // Chosen KEM for PQ HFS, None if disabled
 }
 
 pub struct ServerSession<A> where A : ClientAuthenticator {
@@ -54,6 +43,7 @@ pub struct ServerSession<A> where A : ClientAuthenticator {
     params_remote : Option<ClientTransportParameters>, // authenticated remote transport parameters
     params_local  : ServerTransportParameters,         // transport parameters
     auth          : Box<A>,                            // application specific auth. check
+    kem_alg       : Option<oqs::kem::OqsKemAlg>,       // Chosen KEM for PQ HFS, None if disabled
 }
 
 pub trait Session {
@@ -68,13 +58,15 @@ pub fn client_session(
     remote_key : [u8; 32],
     static_key : Option<[u8; 32]>,
     params     : ClientTransportParameters,
+    kem_alg    : Option<oqs::kem::OqsKemAlg>,
 ) -> ClientSession {
     ClientSession {
         static_key: static_key.unwrap_or(STATIC_DUMMY_SECRET),
         params_remote: None,
         params_local: params,
         remote_key,
-        session: None
+        session: None,
+        kem_alg,
     }
 }
 
@@ -82,6 +74,7 @@ pub fn server_session<A>(
     static_key : [u8; 32],
     params     : ServerTransportParameters,
     auth       : A,
+    kem_alg    : Option<oqs::kem::OqsKemAlg>,
 ) -> ServerSession<A> where A : ClientAuthenticator {
     ServerSession {
         static_key    : static_key,
@@ -89,6 +82,7 @@ pub fn server_session<A>(
         params_local  : params,
         session       : None,
         auth          : Box::new(auth),
+        kem_alg,
     }
 }
 
@@ -153,8 +147,7 @@ impl ClientSession {
         // build Noise session
 
         self.session = Some({
-            let resolver = snow::resolvers::FallbackResolver::new(Box::new(CryptoResolver), Box::new(snow::resolvers::DefaultResolver::default()));
-            let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
+            let builder  = noise_builder(self.kem_alg).map_err(QuicError::KemCreationError)?;
                 builder
                     .prologue(prologue)
                     .local_private_key(&self.static_key)
@@ -182,8 +175,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
                 Err(QuicError::General("setting prologue after processing handshake request".to_owned())),
             None => {
                 self.session = Some({
-                    let resolver = snow::resolvers::FallbackResolver::new(Box::new(CryptoResolver), Box::new(snow::resolvers::DefaultResolver::default()));
-                    let builder  = Builder::with_resolver(PARAMS.clone(), Box::new(resolver));
+                    let builder  = noise_builder(self.kem_alg).map_err(QuicError::KemCreationError)?;
                         builder
                             .local_private_key(&self.static_key)
                             .prologue(prologue)
@@ -316,7 +308,53 @@ fn to_vec<T: Codec>(val: &T) -> Vec<u8> {
 
 const ALPN_PROTOCOL: &str = "hq-11";
 
-struct CryptoResolver;
+fn noise_builder(kem_alg: Option<oqs::kem::OqsKemAlg>) -> Result<Builder<'static>, KemCreationError> {
+    use snow::types::Kem as _;
+    if let Some(kem_alg) = kem_alg {
+        // Ensure that this KEM can be created and obtain the alg name
+        let kem_alg_name = Kem::new(kem_alg)?.name();
+
+        let our_resolver = CryptoResolver { kem_alg: Some(kem_alg) };
+        let default_resolver = snow::resolvers::DefaultResolver;
+        let resolver = snow::resolvers::FallbackResolver::new(
+            Box::new(our_resolver),
+            Box::new(default_resolver));
+
+        let params = NoiseParams {
+            name: format!("Noise_IKhfs_25519+{}_AESGCM_SHA256", kem_alg_name),
+            base: snow::params::BaseChoice::Noise,
+            handshake: "IKhfs".parse().unwrap(),
+            dh: snow::params::DHChoice::Curve25519,
+            kem: Some(snow::params::KemChoice::Kyber1024),
+            cipher: snow::params::CipherChoice::AESGCM,
+            hash: snow::params::HashChoice::SHA256,
+        };
+
+        Ok(Builder::with_resolver(params, Box::new(resolver)))
+    } else {
+        let our_resolver = CryptoResolver { kem_alg: None };
+        let default_resolver = snow::resolvers::DefaultResolver;
+        let resolver = snow::resolvers::FallbackResolver::new(
+            Box::new(our_resolver),
+            Box::new(default_resolver));
+
+        let params = NoiseParams {
+            name: format!("Noise_IK_25519_AESGCM_SHA256"),
+            base: snow::params::BaseChoice::Noise,
+            handshake: "IK".parse().unwrap(),
+            dh: snow::params::DHChoice::Curve25519,
+            kem: Some(snow::params::KemChoice::Kyber1024),
+            cipher: snow::params::CipherChoice::AESGCM,
+            hash: snow::params::HashChoice::SHA256,
+        };
+
+        Ok(Builder::with_resolver(params, Box::new(resolver)))
+    }
+}
+
+struct CryptoResolver {
+    kem_alg: Option<oqs::kem::OqsKemAlg>,
+}
 
 impl snow::resolvers::CryptoResolver for CryptoResolver {
     fn resolve_rng(&self) -> Option<Box<dyn snow::types::Random>> {
@@ -339,12 +377,13 @@ impl snow::resolvers::CryptoResolver for CryptoResolver {
     }
 
     fn resolve_kem(&self, _choice: &snow::params::KemChoice) -> Option<Box<dyn snow::types::Kem>> {
-        match Kem::new("SIKE-p434", oqs::kem::OqsKemAlg::SikeP434) {
-            Ok(x) => Some(Box::new(x)), // as Box<dyn snow::types::Kem>
-            Err(e) => {
+        match self.kem_alg.map(Kem::new) {
+            Some(Ok(x)) => Some(Box::new(x)), // as Box<dyn snow::types::Kem>
+            Some(Err(e)) => {
                 error!("cannot init kem: {}", e);
                 None
             }
+            None => None,
         }
     }
 }
@@ -356,11 +395,24 @@ struct Kem {
     private_key: Option<Vec<u8>>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum KemCreationError {
+    #[error("KEM algorithm name is not valid C string: {source}")]
+    InvalidCString{ #[from] source: std::ffi::FromBytesWithNulError },
+    #[error("KEM algorithm name is not valid UTF-8 string: {source}")]
+    InvalidUtfString{ #[from] source: std::str::Utf8Error },
+    #[error(transparent)]
+    OqsError{ #[from] source: oqs::kem::Error },
+}
+
 impl Kem {
-    pub fn new(name: &'static str, alg: oqs::kem::OqsKemAlg) -> oqs::kem::Result<Self> {
+    pub fn new(alg: oqs::kem::OqsKemAlg) -> Result<Self, KemCreationError> {
+        let name = std::ffi::CStr::from_bytes_with_nul(alg.alg_name())?
+            .to_str()?;
         let oqs = oqs::kem::OqsKem::new(alg)?;
         Ok(Self {
-            name, oqs,
+            name,
+            oqs,
             public_key: None,
             private_key: None,
         })

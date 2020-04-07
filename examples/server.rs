@@ -3,6 +3,9 @@ extern crate ninn;
 extern crate tokio;
 extern crate futures;
 extern crate hex;
+extern crate enum_iterator;
+
+use enum_iterator::IntoEnumIterator;
 
 use std::time::*;
 use futures::prelude::*;
@@ -32,9 +35,21 @@ fn main() {
 
     env_logger::init();
 
+    let kem_choice = std::env::args().nth(1);
+    let kem_alg = if let Some(kem_choice) = kem_choice  {
+        let (alg, _) = oqs::kem::OqsKemAlg::into_enum_iter()
+            .map(|a| (a, a.alg_name()))
+            .map(|(a, n)| (a, std::ffi::CStr::from_bytes_with_nul(n).unwrap().to_str().unwrap()))
+            .find(|(_, name)| name == &kem_choice)
+            .expect("Unknown KEM algorithm");
+        Some(alg)
+    } else {
+        None
+    };
+
     let auth = Authenticator{};
 
-    let server = ninn::Server::new("0.0.0.0", 8888, server_sk, auth)
+    let server = ninn::Server::new("0.0.0.0", 8888, server_sk, auth, kem_alg)
         .unwrap().for_each(
             |strm| {
 

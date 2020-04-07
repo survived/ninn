@@ -68,6 +68,8 @@ pub enum QuicError {
     DecodeError(String),
     #[fail(display = "")]
     Timeout,
+    #[fail(display = "{}", _0)]
+    KemCreationError(#[cause] handshake::KemCreationError),
 }
 
 impl From<std::io::Error> for QuicError {

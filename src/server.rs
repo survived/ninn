@@ -32,7 +32,9 @@ pub struct Server<A> where A : ClientAuthenticator + 'static {
     established_closed: bool,
 
     key  : [u8; 32],
-    auth : Box<A>
+    auth : Box<A>,
+
+    kem_alg: Option<oqs::kem::OqsKemAlg>,
 }
 
 type PacketChannel = (
@@ -41,7 +43,7 @@ type PacketChannel = (
 );
 
 impl <A> Server<A> where A : ClientAuthenticator {
-    pub fn new(ip: &str, port: u16, key: [u8; 32], auth : A) -> QuicResult<Self> {
+    pub fn new(ip: &str, port: u16, key: [u8; 32], auth : A, kem_alg: Option<oqs::kem::OqsKemAlg>) -> QuicResult<Self> {
         let addr = (ip, port)
             .to_socket_addrs()?
             .next()
@@ -57,6 +59,7 @@ impl <A> Server<A> where A : ClientAuthenticator {
             established_recv: recv,
             established_closed: false,
             key,
+            kem_alg,
         })
     }
 
@@ -72,7 +75,7 @@ impl <A> Server<A> where A : ClientAuthenticator {
 
         let cid = if ptype == Some(LongType::Initial) {
             let mut state = ConnectionState::new(
-                handshake::server_session(self.key, ServerTransportParameters::default().clone(), self.auth.as_ref().clone()),
+                handshake::server_session(self.key, ServerTransportParameters::default().clone(), self.auth.as_ref().clone(), self.kem_alg),
                 Some(dst_cid),
             );
 

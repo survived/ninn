@@ -3,8 +3,10 @@ extern crate futures;
 extern crate ninn;
 extern crate tokio;
 extern crate webpki;
+extern crate enum_iterator;
 
 use futures::future::{ok, loop_fn, Future, Loop};
+use enum_iterator::IntoEnumIterator;
 
 use std::env;
 use std::thread;
@@ -29,10 +31,22 @@ fn main() {
     assert_eq!(server_pk.len(), 32);
 
     let server = env::args().nth(1).expect("need server name as an argument");
+    let kem_choice = env::args().nth(2);
+
+    let kem_alg = if let Some(kem_choice) = kem_choice  {
+        let (alg, _) = oqs::kem::OqsKemAlg::into_enum_iter()
+            .map(|a| (a, a.alg_name()))
+            .map(|(a, n)| (a, std::ffi::CStr::from_bytes_with_nul(n).unwrap().to_str().unwrap()))
+            .find(|(_, name)| name == &kem_choice)
+            .expect("Unknown KEM algorithm");
+        Some(alg)
+    } else {
+        None
+    };
 
     println!("Connect to : {}", server);
 
-    let _res : Result<(), _> = ninn::Client::connect(&server, 8888, server_pk, None)
+    let _res : Result<(), _> = ninn::Client::connect(&server, 8888, server_pk, None, kem_alg)
             .unwrap()
             .and_then(|conn| {
 

@@ -26,6 +26,8 @@ webpki = "0.18.0-alpha"
 webpki-roots = "0.14"
 env_logger = "0.5"
 lazy_static = "*"
+thiserror = "1.0.14"
+enum-iterator = "0.6.0"
 
 [dependencies.rustls]
 git = "https://github.com/ctz/rustls"
@@ -39,7 +41,7 @@ features = ["hfs"]
 
 [dependencies.oqs]
 git = "https://github.com/survived/oqs-rs.git"
-branch = "unstable"
+branch = "liboqs-upgrade"
 
 [dev-dependencies]
 env_logger = "0.5"
