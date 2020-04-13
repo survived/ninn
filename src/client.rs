@@ -99,20 +99,14 @@ impl Future for Client {
 #[must_use = "futures do nothing unless polled"]
 pub struct ConnectFuture {
     client  : Option<Client>,
-    timeout : reactor::Timeout,
 }
 
 impl ConnectFuture {
     fn new(mut client: Client) -> QuicResult<ConnectFuture> {
-        let core     = reactor::Core::new().unwrap();
-        let handle   = core.handle();
         let prologue = "Hello World".as_bytes();
         client.conn_state.initial(&prologue)?;
         Ok(ConnectFuture {
             client: Some(client),
-            timeout: reactor::Timeout::new(
-                Duration::from_millis(5000), &handle
-            ).unwrap()
         })
     }
 }
