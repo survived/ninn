@@ -98,6 +98,10 @@ where
         }
     }
 
+    pub fn handshake(&self) -> &T {
+        &self.handshake
+    }
+
     pub fn is_handshaking(&self) -> bool {
         match self.state {
             State::Connected => false,

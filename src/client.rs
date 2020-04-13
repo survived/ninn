@@ -67,6 +67,10 @@ impl Client {
         self.conn_state.pop_queue();
         Ok(Async::Ready(()))
     }
+
+    pub fn handshake_duration(&self) -> Option<std::time::Duration> {
+        self.conn_state.handshake().handshake_duration()
+    }
 }
 
 impl Future for Client {

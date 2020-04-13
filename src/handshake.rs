@@ -11,8 +11,9 @@ use hex;
 use snow;
 use protector;
 
-use snow::Builder;
+use snow::{Builder, HandshakeState};
 use snow::params::NoiseParams;
+use packet::LongType::Handshake;
 
 const STATIC_DUMMY_SECRET : [u8; 32] = [
     0xe0, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14,
@@ -35,6 +36,7 @@ pub struct ClientSession {
     params_remote : Option<ServerTransportParameters>, // authenticated remote transport parameters
     params_local  : ClientTransportParameters,         // transport parameters
     kem_alg       : Option<oqs::kem::OqsKemAlg>,       // Chosen KEM for PQ HFS, None if disabled
+    hs_duration   : HandshakeDuration,                 // Keeps track of elapsed time during handshake phase
 }
 
 pub struct ServerSession<A> where A : ClientAuthenticator {
@@ -44,6 +46,7 @@ pub struct ServerSession<A> where A : ClientAuthenticator {
     params_local  : ServerTransportParameters,         // transport parameters
     auth          : Box<A>,                            // application specific auth. check
     kem_alg       : Option<oqs::kem::OqsKemAlg>,       // Chosen KEM for PQ HFS, None if disabled
+    hs_duration   : HandshakeDuration,                 // Keeps track of elapsed time during handshake phase
 }
 
 pub trait Session {
@@ -67,6 +70,7 @@ pub fn client_session(
         remote_key,
         session: None,
         kem_alg,
+        hs_duration: HandshakeDuration::not_started(),
     }
 }
 
@@ -83,6 +87,7 @@ pub fn server_session<A>(
         session       : None,
         auth          : Box::new(auth),
         kem_alg,
+        hs_duration: HandshakeDuration::not_started(),
     }
 }
 
@@ -112,6 +117,8 @@ impl Session for ClientSession {
 
                 assert!(session.is_initiator());
                 assert!(session.is_handshake_finished());
+
+                self.hs_duration.finish();
 
                 // export key material
 
@@ -144,6 +151,9 @@ impl ClientSession {
             panic!("Multiple calls to create_handshake_request");
         }
 
+        // Initiate handshake duration stopwatch
+        self.hs_duration.start();
+
         // build Noise session
 
         self.session = Some({
@@ -166,6 +176,10 @@ impl ClientSession {
 
         Ok(msg[..len].to_owned())
     }
+
+    pub fn handshake_duration(&self) -> Option<std::time::Duration> {
+        self.hs_duration.handshake_elapsed()
+    }
 }
 
 impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
@@ -174,6 +188,7 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
             Some(_) =>
                 Err(QuicError::General("setting prologue after processing handshake request".to_owned())),
             None => {
+                self.hs_duration.start();
                 self.session = Some({
                     let builder  = noise_builder(self.kem_alg).map_err(QuicError::KemCreationError)?;
                         builder
@@ -265,6 +280,8 @@ impl <A> Session for ServerSession<A> where A :ClientAuthenticator {
 
                 assert!(!session.is_initiator());
                 assert!(session.is_handshake_finished());
+
+                self.hs_duration.finish();
 
                 let cipher = session.into_cipher_keys().unwrap();
                 let (mut client_secret, mut server_secret) = ([0; 32], [0; 32]);
@@ -509,4 +526,56 @@ impl snow::types::Cipher for CipherAESGCM {
 fn copy_memory(from: &[u8], to: &mut [u8]) {
     let i = from.len().min(to.len());
     to[..i].copy_from_slice(&from[..i]);
+}
+
+/// Figures how much time handshake took.
+#[derive(PartialEq, Debug)]
+pub enum HandshakeDuration {
+    NotStarted,
+    Running(std::time::Instant),
+    Finished(std::time::Duration),
+}
+
+impl HandshakeDuration {
+    /// Instantiates new `HandshakeDuration` in NotStarted state
+    pub fn not_started() -> Self {
+        HandshakeDuration::NotStarted
+    }
+
+    /// Starts stopwatch
+    ///
+    /// # Panic
+    /// Panics if `HandshakeDuration` is not in the state `NotStarted`
+    pub fn start(&mut self) {
+        assert!(self.is_not_started(), "double start of handshake");
+        *self = HandshakeDuration::Running(std::time::Instant::now());
+    }
+
+    /// Reports that handshake's just finished.
+    ///
+    /// # Panic
+    /// Panics if `HandshakeDuration` is not in the state `Running`
+    pub fn finish(&mut self) {
+        *self = match self {
+            HandshakeDuration::Running(instant) => {
+                HandshakeDuration::Finished(instant.elapsed())
+            }
+            _ => panic!("handshake is not running"),
+        }
+    }
+
+    /// Returns elapsed time if handshake finished, `None` otherwise.
+    pub fn handshake_elapsed(&self) -> Option<std::time::Duration> {
+        match self {
+            HandshakeDuration::Finished(elapsed) => Some(*elapsed),
+            _ => None,
+        }
+    }
+
+    fn is_not_started(&self) -> bool {
+        match self {
+            HandshakeDuration::NotStarted => true,
+            _ => false,
+        }
+    }
 }

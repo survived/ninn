@@ -53,6 +53,7 @@ fn main() {
                 // open stream
 
                 let (client, strm) = conn;
+                println!("Handshake completed in {:?}", client.handshake_duration());
                 let stream = match strm.get_stream(0) {
                     Some(s) => s,
                     None => {
