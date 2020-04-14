@@ -53,7 +53,7 @@ fn main() {
 
     let auth = Authenticator{};
 
-    let server = ninn::Server::new("0.0.0.0", 8888, server_sk, auth, kem_alg)
+    let server = ninn::Server::new("127.0.0.1", 8888, server_sk, auth, kem_alg)
         .unwrap().for_each(|_| Ok(()));
     tokio::run(server);
 }

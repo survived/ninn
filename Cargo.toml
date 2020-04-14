@@ -56,3 +56,7 @@ path = "examples/client.rs"
 [[bin]]
 name = "server"
 path = "examples/server.rs"
+
+[[bin]]
+name = "dummy_server"
+path = "examples/dummy_server.rs"

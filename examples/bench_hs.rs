@@ -50,7 +50,6 @@ fn main() {
         .with_plots()
         .plotting_backend(criterion::PlottingBackend::Gnuplot)
         .save_baseline(format!("{}_{}", testsuite_name, kem_choice))
-        .measurement_time(Duration::from_secs(500))
         .bench_function("handshake_time", |b| b.iter_custom(|n| run_n_times(&server, kem_alg, n)));
 }
 
