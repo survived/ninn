@@ -764,6 +764,7 @@ dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "oqs 0.1.0 (git+https://github.com/survived/oqs-rs.git?branch=liboqs-upgrade)",
  "rand 0.5.0-pre.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand_core 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.13.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-crypto 0.2.36 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.13.0 (git+https://github.com/ctz/rustls?rev=9a230c6d)",

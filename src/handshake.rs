@@ -405,7 +405,7 @@ impl snow::resolvers::CryptoResolver for CryptoResolver {
     }
 }
 
-struct Kem {
+pub struct Kem {
     name: &'static str,
     oqs: oqs::kem::OqsKem,
     public_key: Option<Vec<u8>>,

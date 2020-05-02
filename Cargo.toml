@@ -48,6 +48,7 @@ env_logger = "0.5"
 untrusted = "0.6"
 hex = "*"
 criterion = "0.3.1"
+rand_core = "0.5.1"
 
 [[bin]]
 name = "client"
